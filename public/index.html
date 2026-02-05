@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AFFiNE Free - Open-source Notion Alternative</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8f9fa; color: #333; }
+    
+    .container { display: flex; height: 100vh; }
+    
+    .sidebar {
+      width: 280px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+      overflow-y: auto;
+      box-shadow: 0 0 20px rgba(102, 126, 234, 0.3);
+    }
+    
+    .sidebar h1 { font-size: 18px; margin-bottom: 20px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .sidebar h1 i { font-size: 20px; }
+    
+    .btn-new { width: 100%; padding: 10px 15px; background: rgba(255,255,255, 0.2); border: 1px solid rgba(255,255,255, 0.3); color: white; border-radius: 6px; cursor: pointer; font-weight: 500; margin-bottom: 20px; transition: all 0.2s; }
+    .btn-new:hover { background: rgba(255,255,255, 0.3); }
+    
+    .search-box { width: 100%; padding: 10px; background: rgba(255,255,255, 0.1); border: 1px solid rgba(255,255,255, 0.2); border-radius: 6px; color: white; margin-bottom: 15px; }
+    .search-box::placeholder { color: rgba(255,255,255, 0.6); }
+    
+    .docs-list { list-style: none; }
+    .doc-item { padding: 10px 12px; margin-bottom: 8px; background: rgba(255,255,255, 0.1); border-radius: 6px; cursor: pointer; transition: all 0.2s; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .doc-item:hover { background: rgba(255,255,255, 0.2); }
+    .doc-item.active { background: rgba(255,255,255, 0.3); font-weight: 600; }
+    
+    .main { flex: 1; display: flex; flex-direction: column; }
+    
+    .toolbar {
+      background: white;
+      border-bottom: 1px solid #e0e0e0;
+      padding: 12px 20px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    
+    .toolbar button { padding: 6px 12px; background: #f0f0f0; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; transition: all 0.2s; font-size: 13px; }
+    .toolbar button:hover { background: #e0e0e0; }
+    .toolbar button.active { background: #667eea; color: white; border-color: #667eea; }
+    
+    .toolbar-divider { width: 1px; height: 20px; background: #ddd; }
+    
+    .editor-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    
+    .doc-header { padding: 20px; background: white; border-bottom: 1px solid #e0e0e0; }
+    .doc-header input { font-size: 24px; font-weight: 600; border: none; outline: none; width: 100%; }
+    
+    .editor { flex: 1; padding: 20px; overflow-y: auto; background: white; }
+    .editor [contenteditable] { min-height: 300px; line-height: 1.6; outline: none; }
+    .editor [contenteditable]:focus { background: #f9f9f9; }
+    
+    .tag-input { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 10px; padding: 10px; background: #f9f9f9; border-radius: 4px; }
+    .tag { background: #667eea; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; display: flex; gap: 5px; align-items: center; }
+    .tag-close { cursor: pointer; font-weight: bold; }
+    .tag-input input { border: none; outline: none; background: transparent; flex: 1; min-width: 100px; }
+    
+    .status { position: fixed; bottom: 20px; right: 20px; padding: 10px 15px; background: #667eea; color: white; border-radius: 6px; font-size: 12px; display: none; }
+    .status.show { display: block; animation: slideIn 0.3s; }
+    
+    @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    
+    .empty { text-align: center; padding: 40px; color: #999; }
+    
+    @media (max-width: 768px) {
+      .sidebar { width: 100%; height: auto; border-bottom: 1px solid #e0e0e0; }
+      .container { flex-direction: column; }
+      .docs-list { display: flex; gap: 10px; overflow-x: auto; margin-bottom: 10px; }
+      .doc-item { min-width: 150px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="sidebar">
+      <h1><i class="fas fa-feather-alt"></i> AFFiNE</h1>
+      <button class="btn-new" onclick="newDoc()"><i class="fas fa-plus"></i> New Document</button>
+      <input type="text" class="search-box" id="search" placeholder="Search docs..." onkeyup="searchDocs()">
+      <ul class="docs-list" id="docsList"></ul>
+    </div>
+    
+    <div class="main">
+      <div class="toolbar">
+        <button onclick="execCmd('bold')" title="Bold"><i class="fas fa-bold"></i></button>
+        <button onclick="execCmd('italic')" title="Italic"><i class="fas fa-italic"></i></button>
+        <button onclick="execCmd('underline')" title="Underline"><i class="fas fa-underline"></i></button>
+        <div class="toolbar-divider"></div>
+        <button onclick="execCmd('createUnorderedList')" title="Bullet List"><i class="fas fa-list-ul"></i></button>
+        <button onclick="execCmd('createOrderedList')" title="Numbered List"><i class="fas fa-list-ol"></i></button>
+        <div class="toolbar-divider"></div>
+        <button onclick="execCmd('formatBlock', '<h1>')" title="Heading 1">H1</button>
+        <button onclick="execCmd('formatBlock', '<h2>')" title="Heading 2">H2</button>
+        <button onclick="execCmd('formatBlock', '<p>')" title="Paragraph">¶</button>
+        <div class="toolbar-divider"></div>
+        <button onclick="insertLink()" title="Link"><i class="fas fa-link"></i></button>
+        <div class="toolbar-divider"></div>
+        <button onclick="shareDoc()" title="Share"><i class="fas fa-share"></i></button>
+        <button onclick="deleteDoc()" title="Delete" style="margin-left: auto; background: #ffebee; color: #c62828;"><i class="fas fa-trash"></i></button>
+      </div>
+      
+      <div class="editor-area">
+        <div class="doc-header">
+          <input type="text" id="docTitle" placeholder="Untitled document" onchange="updateDoc()">
+          <div class="tag-input" id="tagInput">
+            <input type="text" placeholder="Add tags..." onkeydown="handleTagInput(event)">
+          </div>
+        </div>
+        
+        <div class="editor">
+          <div id="docContent" contenteditable="true" spellcheck="true"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="status" id="status"></div>
+  
+  <script>
+    let currentDoc = null;
+    let docs = [];
+    
+    async function loadDocs() {
+      try {
+        const res = await fetch('/api/docs');
+        docs = await res.json();
+        renderDocsList();
+      } catch (e) {
+        console.error('Failed to load docs:', e);
+      }
+    }
+    
+    function renderDocsList() {
+      const list = document.getElementById('docsList');
+      list.innerHTML = docs.map(doc => 
+        `<li class="doc-item ${currentDoc?.id === doc.id ? 'active' : ''}" onclick="loadDoc('${doc.id}')">${doc.title || 'Untitled'}</li>`
+      ).join('');
+    }
+    
+    async function loadDoc(id) {
+      try {
+        const res = await fetch(`/api/docs/${id}`);
+        currentDoc = { id, ...await res.json() };
+        document.getElementById('docTitle').value = currentDoc.title;
+        document.getElementById('docContent').innerHTML = currentDoc.content;
+        renderTags();
+        renderDocsList();
+      } catch (e) {
+        console.error('Failed to load doc:', e);
+      }
+    }
+    
+    async function newDoc() {
+      try {
+        const res = await fetch('/api/docs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: 'Untitled', content: '', tags: [] })
+        });
+        const doc = await res.json();
+        docs.push(doc);
+        loadDoc(doc.id);
+        showStatus('Document created');
+      } catch (e) {
+        console.error('Failed to create doc:', e);
+      }
+    }
+    
+    async function updateDoc() {
+      if (!currentDoc) return;
+      const title = document.getElementById('docTitle').value;
+      const content = document.getElementById('docContent').innerHTML;
+      const tags = Array.from(document.querySelectorAll('.tag')).map(t => t.textContent.replace('×', '').trim());
+      
+      try {
+        await fetch(`/api/docs/${currentDoc.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title, content, tags })
+        });
+        currentDoc = { ...currentDoc, title, content, tags };
+        showStatus('Saved');
+      } catch (e) {
+        console.error('Failed to update:', e);
+      }
+    }
+    
+    async function deleteDoc() {
+      if (!currentDoc || !confirm('Delete this document?')) return;
+      try {
+        await fetch(`/api/docs/${currentDoc.id}`, { method: 'DELETE' });
+        docs = docs.filter(d => d.id !== currentDoc.id);
+        currentDoc = null;
+        document.getElementById('docTitle').value = '';
+        document.getElementById('docContent').innerHTML = '';
+        renderDocsList();
+        showStatus('Document deleted');
+      } catch (e) {
+        console.error('Failed to delete:', e);
+      }
+    }
+    
+    async function searchDocs() {
+      const q = document.getElementById('search').value;
+      if (!q) return loadDocs();
+      try {
+        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+        docs = await res.json();
+        renderDocsList();
+      } catch (e) {
+        console.error('Search failed:', e);
+      }
+    }
+    
+    function handleTagInput(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const input = e.target;
+        const tag = input.value.trim();
+        if (tag) {
+          const tagEl = document.createElement('span');
+          tagEl.className = 'tag';
+          tagEl.innerHTML = `${tag} <span class="tag-close" onclick="removeTag(event)">×</span>`;
+          document.getElementById('tagInput').insertBefore(tagEl, input);
+          input.value = '';
+          updateDoc();
+        }
+      }
+    }
+    
+    function removeTag(e) {
+      e.target.parentElement.remove();
+      updateDoc();
+    }
+    
+    function renderTags() {
+      const container = document.getElementById('tagInput');
+      const input = container.querySelector('input');
+      const existing = container.querySelectorAll('.tag');
+      existing.forEach(t => t.remove());
+      
+      currentDoc.tags?.forEach(tag => {
+        const tagEl = document.createElement('span');
+        tagEl.className = 'tag';
+        tagEl.innerHTML = `${tag} <span class="tag-close" onclick="removeTag(event)">×</span>`;
+        container.insertBefore(tagEl, input);
+      });
+    }
+    
+    function execCmd(cmd, val) {
+      document.execCommand(cmd, false, val);
+      document.getElementById('docContent').focus();
+      updateDoc();
+    }
+    
+    function insertLink() {
+      const url = prompt('Enter URL:');
+      if (url) execCmd('createLink', url);
+    }
+    
+    function shareDoc() {
+      if (!currentDoc) return;
+      const shareUrl = `${window.location.origin}?doc=${currentDoc.id}`;
+      alert('Share link: ' + shareUrl);
+    }
+    
+    function showStatus(msg) {
+      const status = document.getElementById('status');
+      status.textContent = msg;
+      status.classList.add('show');
+      setTimeout(() => status.classList.remove('show'), 2000);
+    }
+    
+    // Auto-save every 5 seconds
+    setInterval(() => {
+      if (currentDoc) updateDoc();
+    }, 5000);
+    
+    // Listen for content changes
+    document.getElementById('docContent')?.addEventListener('input', () => updateDoc());
+    
+    // Initial load
+    loadDocs();
+    
+    // Load from URL param if present
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('doc')) loadDoc(urlParams.get('doc'));
+  </script>
+</body>
+</html>
